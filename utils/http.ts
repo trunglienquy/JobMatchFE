@@ -3,8 +3,7 @@ import { routes } from '@/constants/routes';
 import Cookies from 'js-cookie';
 
 type CustomOptions = Omit<RequestInit, 'method'> & {
-  baseUrl?: string;
-  body?: any;
+  baseUrl?: string | undefined;
 };
 
 type EntityErrorPayload = {
@@ -22,31 +21,31 @@ type ApiResponse<T> = {
   data: T;
 };
 
-export class HttpError extends Error {
-  status: number;
-  payload: any;
-  constructor({ status, payload }: { status: number; payload: any }) {
-    super('Http Error');
-    this.status = status;
-    this.payload = payload;
-  }
-}
+// export class HttpError extends Error {
+//   status: number;
+//   payload: any;
+//   constructor({ status, payload }: { status: number; payload: any }) {
+//     super('Http Error');
+//     this.status = status;
+//     this.payload = payload;
+//   }
+// }
 
-export class EntityError extends HttpError {
-  status: 422;
-  payload: EntityErrorPayload;
-  constructor({ status, payload }: { status: 422; payload: EntityErrorPayload }) {
-    super({ status, payload });
-    this.status = status;
-    this.payload = payload;
-  }
-}
+// export class EntityError extends HttpError {
+//   status: 422;
+//   payload: EntityErrorPayload;
+//   constructor({ status, payload }: { status: 422; payload: EntityErrorPayload }) {
+//     super({ status, payload });
+//     this.status = status;
+//     this.payload = payload;
+//   }
+// }
 
-const request = async <T>(
+const request = async <Response>(
   method: 'GET' | 'POST' | 'PUT' | 'DELETE',
   url: string,
-  options?: CustomOptions
-): Promise<T> => {
+  options?: CustomOptions | undefined,
+) => {
   let body: FormData | string | undefined = undefined;
   const token = Cookies.get(STORAGE_KEY.EC_TOKEN);
 
@@ -80,7 +79,7 @@ const request = async <T>(
     headers: {
       ...baseHeaders,
       ...options?.headers,
-    },
+    } as any,
     body,
     method,
     next: {
@@ -88,7 +87,12 @@ const request = async <T>(
     },
   });
 
-  const json: ApiResponse<T> = await res.json();
+  const payload: Response = await res.json();
+  const data = {
+    status: res.status,
+    payload,
+  };
+  // const json: ApiResponse<T> = await res.json();
 
   if (!res.ok) {
     if (
@@ -97,39 +101,29 @@ const request = async <T>(
       !['/login', '/register', '/register/validate', '/forgot-password'].includes(url)
     ) {
       Cookies.remove(STORAGE_KEY.EC_TOKEN);
-      localStorage.removeItem(STORAGE_KEY.EC_USER);
-      
-      const currentPath = window.location.pathname;
-      if (!currentPath.includes('/auth/')) {
-        window.location.href = routes.login;
-      }
+      window.localStorage.removeItem(STORAGE_KEY.EC_USER);
+      window.location.href = routes.login;
     }
 
     if (res.status === 500) {
       window.location.href = routes.internalError;
     }
-
-    if (res.status === 422) {
-      throw new EntityError({ status: 422, payload: json as any });
-    }
-
-    throw new HttpError({ status: res.status, payload: json });
   }
 
-  return json.data;
+  return data;
 };
 
 const http = {
-  get<T>(url: string, options?: Omit<CustomOptions, 'body'>) {
+  get<T>(url: string, options?: Omit<CustomOptions, 'body'> | undefined)  {
     return request<T>('GET', url, options);
   },
-  post<T>(url: string, body: any, options?: Omit<CustomOptions, 'body'>) {
+  post<T>(url: string, body: any, options?: Omit<CustomOptions, 'body'> | undefined) {
     return request<T>('POST', url, { ...options, body });
   },
-  put<T>(url: string, body: any, options?: Omit<CustomOptions, 'body'>) {
+  put<T>(url: string, body: any, options?: Omit<CustomOptions, 'body'> | undefined) {
     return request<T>('PUT', url, { ...options, body });
   },
-  delete<T>(url: string, options?: Omit<CustomOptions, 'body'>) {
+  delete<T>(url: string, options?: Omit<CustomOptions, 'body'> | undefined) {
     return request<T>('DELETE', url, options);
   },
 };

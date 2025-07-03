@@ -1,6 +1,7 @@
 export type ResponseData<T> = {
   success: boolean;
   message: string;
+  timestamp: string;
   data: T;
 }
 
